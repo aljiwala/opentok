@@ -9,28 +9,43 @@ import (
 	"strconv"
 )
 
-// Endpoint should construct API endpoint.
-// This will returns an *url.URL. Here's the example:
-//
-//	c := NewClient("1234567", "token", nil)
-//	c.EndPoint("Messages", "abcdef") // "/2010-04-01/Accounts/1234567/Messages/abcdef.json"
-//
-// func Endpoint(parts ...string) *url.URL {
-// 	up := []string{config.APIVersion, "Accounts", ""}
-// 	up = append(up, parts...)
-// 	u, _ := url.Parse(strings.Join(up, "/"))
-// 	u.Path = fmt.Sprintf("/%s.%s", u.Path, "")
-// 	return u
-// }
+// Decode should decode the response data into provided interface value.
+func Decode(r *http.Request, data interface{}) error {
+	if err := json.NewDecoder(r.Body).Decode(data); err != nil {
+		return err
+	}
+	return nil
+}
 
-// NewJWT should create a new JWT token with claims (if given).
-func NewJWT() (string, error) {
+// IsZero determines whether or not a variable/field/whatever is of it's type's
+// zero value pass reflect.ValueOf(x).
+// http://stackoverflow.com/a/23555352/3183170
+func IsZero(v reflect.Value) bool {
+	switch v.Kind() {
+	case reflect.Func, reflect.Map, reflect.Slice:
+		return v.IsNil()
+	case reflect.Array:
+		z := true
+		for i := 0; i < v.Len(); i++ {
+			z = z && IsZero(v.Index(i))
+		}
+		return z
+	case reflect.Struct:
+		z := true
+		for i := 0; i < v.NumField(); i++ {
+			z = z && IsZero(v.Field(i))
+		}
+		return z
+	}
 
+	// Compare other types directly:
+	z := reflect.Zero(v.Type())
+	return v.Interface() == z.Interface()
 }
 
 // CheckResponse ...
 func CheckResponse(r *http.Response) error {
-	if c := r.StatusCode; 200 <= c && c <= 299 {
+	if c := r.StatusCode; http.StatusOK <= c && c <= http.StatusIMUsed {
 		return nil
 	}
 
